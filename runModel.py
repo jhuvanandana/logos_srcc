@@ -73,7 +73,7 @@ if __name__ == '__main__':
             file = open('%s/%s'%(trainDir,txtFname),'r')
             fname, wordList = file.read().splitlines()
             fname = fname.replace('# ','')
-                                  
+
             gtfile = open('%s/%s_ground_truth.txt'%(trainDir,fname))
             gtList = gtfile.read()
             gtList = list(filter(lambda k: len(k), list(gtList.split(' '))))
