@@ -18,11 +18,6 @@ import speech_recognition as sr
 from pydub import AudioSegment
 from difflib import SequenceMatcher
 from datetime import datetime
-from sklearn.metrics import accuracy_score
-
-def unbracket(vector):
-    lst  = [val for sublist in vector for val in sublist]
-    return np.array(lst)
 
 # https://www.howmanysyllables.com/howtocountsyllables
 def countSyllables(word):
