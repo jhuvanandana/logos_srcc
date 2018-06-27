@@ -8,73 +8,66 @@ Created: 20/06/2018
 import os
 import numpy as np
 import pandas as pd
-import tensorflow as tf
 import speech_recognition as sr
-from io import BytesIO
-from gtts import gTTS
 from pydub import AudioSegment
 from difflib import SequenceMatcher
-from scipy.io import wavfile
-from scipy.signal import resample, coherence, spectrogram
-from matplotlib import pyplot as plt
-from pygame import mixer
 
 from datetime import datetime
-from sklearn import metrics
-from sklearn import pipeline
-from sklearn import preprocessing
-from sklearn import ensemble
+from sklearn.metrics import accuracy_score
 
-from keras import backend as K
-from keras import optimizers
-from keras import callbacks
-from keras import layers
-from keras import models
-from pydub import AudioSegment
+def unbracket(vector):
+    lst  = [val for sublist in vector for val in sublist]
+    return np.array(lst)
 
-## https://stackoverflow.com/questions/405161/detecting-syllables-in-a-word
+# https://www.howmanysyllables.com/howtocountsyllables
 def countSyllables(word):
-    vowels = "aeiouy"
-    numVowels = 0
+    nSyl = 0
+    nLetters = len(word)
+    vowelList = 'aeiouy'
     lastWasVowel = False
-    for wc in word:
+    
+    for letter in word:
         foundVowel = False
-        for v in vowels:
-            if v == wc:
-                if not lastWasVowel: numVowels+=1   #don't count diphthongs
-                foundVowel = lastWasVowel = True
-                break
-        if not foundVowel:  #If full cycle and no vowel found, set lastWasVowel to false
+        if letter in vowelList and not lastWasVowel:
+            nSyl+=1
+            foundVowel = lastWasVowel = True
+        if not foundVowel:
             lastWasVowel = False
-    if len(word) > 2 and word[-2:] == "es": #Remove es - it's "usually" silent (?)
-        numVowels-=1
-    elif len(word) > 1 and word[-1:] == "e":    #remove silent e
-        numVowels-=1
-    return numVowels
+    if nLetters > 2 and word[-2:] == 'es':
+        nSyl-=1
+    elif nLetters > 1 and word[-1:] == 'e':
+        nSyl-=1
+    return nSyl
 
 if __name__ == '__main__':
     
     ## initialise
     start = datetime.now()
     os.chdir('C:/Users/Jacqueline/Documents/DataScience/Projects/logos')
-    trainDir = 'data/simulated/train'
-    testDir  = 'data/simulated/test'
     
     ## training data
+    trainDir = 'data/simulated/train'
     trainFlist    = os.listdir(trainDir)
     trainTargList = list(filter(lambda k: 'targets.txt' in k, trainFlist))
     
     ## testing data
+    testDir  = 'data/simulated/test'
     testFlist = os.listdir(testDir)
     testTargList = list(filter(lambda k: 'targets.txt' in k, testFlist))
     
+    ## logos training data
+    logTrainDir = 'data/LOGOS_exemplar/train'
+    logFlist    = os.listdir(logTrainDir)
+    logTargList = list(filter(lambda k: 'targets.txt' in k, logFlist))
+    
     ## collate sounds
-    i_do_train = 0
-    i_do_pred = 1
+    i_do_sim_train = 0
+    i_do_sim_pred = 0
+    i_do_log_train = 1
     nWords = 15
     r = sr.Recognizer()
     
-    if i_do_train:
+    if i_do_sim_train:
         for txtFname in trainTargList:
             print('Completing for: %s'%txtFname)
             file = open('%s/%s'%(trainDir,txtFname),'r')
@@ -146,8 +139,75 @@ if __name__ == '__main__':
 #                    coherence(guessData,sound,fs=samp_rate)
                 
             
+            
+    if i_do_log_train:
+        allTarg = []
+        allPred = []
+        for txtFname in logTargList:
+            print('Completing for: %s'%txtFname)
+            file = open('%s/%s'%(logTrainDir,txtFname),'r')
+            fname, wordList = file.read().splitlines()
+            fname = fname.replace('# ','')
+            rID = int(fname.split('-')[1].split('_')[0])
+                                  
+            gtfile = open('%s/%s_ground_truth.txt'%(logTrainDir,fname))
+            gtList = gtfile.read()
+            gtList = list(filter(lambda k: len(k), list(gtList.split(' '))))
     
-    if i_do_pred:
+            wordList = list(filter(lambda k: len(k), wordList.split(' ')))
+                
+            sndFname = '%s/%s.mp3'%(logTrainDir,fname)
+            if os.path.isfile(sndFname): # handle missing files
+
+                sound = AudioSegment.from_mp3(sndFname)
+                wavFname = sndFname.replace('.mp3','.wav')
+                sound.export(wavFname, format='wav')
+                speechFile = sr.AudioFile(wavFname)
+                
+                with speechFile as source:
+                    audio = r.record(source)
+                    
+                os.remove(wavFname)
+                guessList = r.recognize_google(audio,language="en-AU")
+                guessList = list(map(lambda k: k.lower(), guessList.split(' ')))
+                
+                itemList = [0]*15 # prepare storage
+                exclList = []
+                for guess in guessList:
+                    idxList = list(filter(lambda k: wordList[k]==guess, range(nWords)))
+                    if len(idxList):
+                        itemList[idxList[0]]=1
+                    else:
+                        exclList.append(guess)
+    
+                filtIdx = list(filter(lambda k: not itemList[k], range(nWords)))
+                filtWordList = list(map(lambda k: wordList[k], filtIdx))
+                        
+                if len(exclList):
+                    for word in filtWordList:
+                        nSyl = countSyllables(word)
+                        ratVec = []
+                        for guess in exclList:
+                            s = SequenceMatcher(lambda x: x == ' ',word,guess)
+                            if nSyl==countSyllables(guess):
+                                rat = s.ratio()
+                            else:
+                                rat = 0
+                            ratVec.append(rat)
+                        if max(ratVec)>0.6: # try threshold
+                            idx = list(filter(lambda k: wordList[k]==word, range(nWords)))[0]
+                            itemList[idx]=1
+                        
+                targList = list(map(lambda k: int(k in gtList), wordList))
+                allPred.append([rID]+itemList)
+                allTarg.append([rID]+targList)
+        ## what is the accuracy score?
+        y_pred = unbracket(list(map(lambda k: k[1:], allPred)))
+        y_true = unbracket(list(map(lambda k: k[1:], allTarg)))
+
+        print('Accuracy score from Logos Training: %0.3f'%accuracy_score(y_true,y_pred))
+    
+    if i_do_sim_pred:
         outVec = []
         
         for txtFname in testTargList:
