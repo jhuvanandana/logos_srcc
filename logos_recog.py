@@ -12,7 +12,6 @@ import os
 import re
 import sys
 import glob
-import numpy as np
 import pandas as pd
 import speech_recognition as sr
 from pydub import AudioSegment
