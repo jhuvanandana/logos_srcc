@@ -8,6 +8,7 @@
 #       + the order of indicator variables (1s and 0s) must match the word order of the target list
 #       + the file must have column headers as follows: "Id, R1, R2, ..., R15"
 
+import argparse
 import os
 import re
 import sys
@@ -38,7 +39,10 @@ def countSyllables(word):
         nSyl-=1
     return nSyl
 
-def main(data_dir='../input', solution_file='TeamJH.csv'):
+def main(data_dir='../input', solution_file='submission.csv'):
+    
+    # append team specific initials
+    solution_file = solution_file.replace('.csv','_teamJH.csv')
     
     # append / as needed
     if data_dir[-1]!='/':
@@ -60,32 +64,40 @@ def main(data_dir='../input', solution_file='TeamJH.csv'):
     col_names = ['Id']+list(map(lambda k: 'R%d'%k,range(1,nWords+1)))
 
     outVec = []
+    print('\n\nBeginning Prediction')
     
     for sndFname in audio_files:
         print('Completing for: %s'%sndFname)
+        fullFname = '%s%s'%(data_dir,sndFname)
+        iGenFile = False
 
         # export to .wav if .mp3
         if '.mp3' in sndFname:
-            sound = AudioSegment.from_mp3(sndFname)
-            sndFname = sndFname.replace('.mp3','.wav')
-            sound.export(sndFname, format='wav')
+            iGenFile = True
+            sound = AudioSegment.from_mp3(fullFname)
+            fullFname = fullFname.replace('.mp3','.wav')
+            sound.export(fullFname, format='wav')
         
-        txtFname = sndFname.replace('.wav','_targets.txt')
+        txtFname = fullFname.replace('.wav','_targets.txt')
         
-        file = open('%s%s'%(data_dir,txtFname),'r')
+        file = open(txtFname,'r')
         fname, wordList = file.read().splitlines()
         fname = fname.replace('# ','')
         caseID = re.match(r'[rt]ID-(\d+)',fname).group(1)
 
         wordList = list(filter(lambda k: len(k), wordList.split(' ')))
 
-        speechFile = sr.AudioFile(sndFname)
+        speechFile = sr.AudioFile(fullFname)
             
         with speechFile as source:
             audio = r.record(source)
 
         guessList = r.recognize_google(audio,language="en-AU")
         guessList = list(map(lambda k: k.lower(), guessList.split(' ')))
+        
+        ## remove generated file
+        if iGenFile:
+            os.remove(fullFname)
         
         itemList = [0]*nWords # prepare storage
         exclList = []
@@ -131,4 +143,11 @@ def main(data_dir='../input', solution_file='TeamJH.csv'):
     print('Current directory contains:')
     print(os.listdir('./'))
 
-if __name__ == '__main__': main()
+if __name__ == '__main__':
+    
+    argList = list(sys.argv)
+    if len(argList)==3:
+        pythonScript, dataDir, submissionFile = argList
+        main(dataDir,submissionFile)
+    else:
+        print('Please input a data directory and path to submission file\nNumber of arguments: %d, %s'%(len(argList), str(argList)))
