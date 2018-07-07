@@ -102,16 +102,22 @@ if __name__ == '__main__':
             for word in filtWordList:
                 nSyl = countSyllables(word)
                 ratVec = []
-                for guess in exclList:
-                    s = SequenceMatcher(lambda x: x == ' ',word,guess)
-                    if nSyl==countSyllables(guess):
-                        rat = s.ratio()
-                    else:
-                        rat = 0
-                    ratVec.append(rat)
-                if max(ratVec)>0.6: # try threshold
-                    idx = list(filter(lambda k: wordList[k]==word, range(nWords)))[0]
-                    itemList[idx]=1
+                if len(exclList):
+                    for guess in exclList:
+                        s = SequenceMatcher(lambda x: x == ' ',word,guess)
+                        if nSyl==countSyllables(guess):
+                            rat = s.ratio()
+                        else:
+                            rat = 0
+                        ratVec.append(rat)
+                    if max(ratVec)>0.5: # try threshold
+                        idx = list(filter(lambda k: wordList[k]==word, range(nWords)))[0]
+                        itemList[idx]=1
+            target = list(map(lambda k: int(k in gtList), wordList))
+            
+            for u in range(nWords):
+                if target[u]!=itemList[u]:
+                    print('Target: %s\nGuess: %s\n\n'%(wordList[u],guessList))
 #
 #            spectList = []
 #            for word in filtWordList:
@@ -194,7 +200,7 @@ if __name__ == '__main__':
                             else:
                                 rat = 0
                             ratVec.append(rat)
-                        if max(ratVec)>0.6: # try threshold
+                        if nSyl>1 and max(ratVec)>0.5: # try threshold
                             idx = list(filter(lambda k: wordList[k]==word, range(nWords)))[0]
                             itemList[idx]=1
                         

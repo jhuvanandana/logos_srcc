@@ -7,8 +7,6 @@
 #       + the vector must be preceded by a 'case' ID, which is the ID number of the recording/target list as labelled by their respective files
 #       + the order of indicator variables (1s and 0s) must match the word order of the target list
 #       + the file must have column headers as follows: "Id, R1, R2, ..., R15"
-
-import argparse
 import os
 import re
 import sys
@@ -25,7 +23,7 @@ def countSyllables(word):
     nLetters = len(word)
     vowelList = 'aeiouy'
     lastWasVowel = False
-    
+
     for letter in word:
         foundVowel = False
         if letter in vowelList and not lastWasVowel:
@@ -39,36 +37,36 @@ def countSyllables(word):
         nSyl-=1
     return nSyl
 
-def main(data_dir='../input', solution_file='submission.csv'):
+def main(dataDir='../input', submissionFile='submission.csv'):
     
     # append team specific initials
-    solution_file = solution_file.replace('.csv','_teamJH.csv')
+    submissionFile = submissionFile.replace('.csv','_teamJH.csv')
     
     # append / as needed
-    if data_dir[-1]!='/':
-        data_dir+='/'
+    if dataDir[-1]!='/':
+        dataDir+='/'
     
     print('This is {}, running at {}.\n'.format(sys.argv[0], datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
 
     # Input data
-    print('Using input data directory: {}'.format(data_dir))
-    audio_files = glob.glob1(data_dir,'*.mp3') + glob.glob1(data_dir,'*.wav')
-    Nfiles = len(audio_files)
+    print('Using input data directory: {}'.format(dataDir))
+    audioFlist = glob.glob1(dataDir,'*.mp3') + glob.glob1(dataDir,'*.wav')
+    Nfiles = len(audioFlist)
 
     print('..directory contains {} test audio files:'.format(Nfiles))
-    print(os.listdir(data_dir))
+    print(os.listdir(dataDir))
 
-    # Generate solution    
+    # Generate solution
     nWords = 15
     r = sr.Recognizer()
-    col_names = ['Id']+list(map(lambda k: 'R%d'%k,range(1,nWords+1)))
+    colNames = ['Id']+list(map(lambda k: 'R%d'%k,range(1,nWords+1)))
 
     outVec = []
     print('\n\nBeginning Prediction')
     
-    for sndFname in audio_files:
+    for sndFname in audioFlist:
         print('Completing for: %s'%sndFname)
-        fullFname = '%s%s'%(data_dir,sndFname)
+        fullFname = '%s%s'%(dataDir,sndFname)
         iGenFile = False
 
         # export to .wav if .mp3
@@ -122,13 +120,13 @@ def main(data_dir='../input', solution_file='submission.csv'):
                     else:
                         rat = 0
                     ratVec.append(rat)
-                if max(ratVec)>0.6: # try threshold
+                if nSyl>1 and max(ratVec)>0.5: # try threshold
                     idx = list(filter(lambda k: wordList[k]==word, range(nWords)))[0]
                     itemList[idx]=1
 
         outVec.append([caseID]+itemList)
 
-    df = pd.DataFrame(outVec,columns=col_names)
+    df = pd.DataFrame(outVec,columns=colNames)
     df.Id = df.Id.astype(int)
     df.sort_values('Id', inplace=True)
     
@@ -137,8 +135,8 @@ def main(data_dir='../input', solution_file='submission.csv'):
     print(df)
 
     print()
-    print('Writing output solution file to: {}'.format(solution_file))
-    df.to_csv(solution_file,index=False)
+    print('Writing output solution file to: {}'.format(submissionFile))
+    df.to_csv(submissionFile,index=False)
 
     print('Current directory contains:')
     print(os.listdir('./'))
