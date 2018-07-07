@@ -188,19 +188,28 @@ if __name__ == '__main__':
     
                 filtIdx = list(filter(lambda k: not itemList[k], range(nWords)))
                 filtWordList = list(map(lambda k: wordList[k], filtIdx))
-                        
+                
                 if len(exclList):
+                    ratMat = []
                     for word in filtWordList:
                         nSyl = countSyllables(word)
                         ratVec = []
                         for guess in exclList:
                             s = SequenceMatcher(lambda x: x == ' ',word,guess)
-                            if nSyl==countSyllables(guess):
+                            sameFirst = word[0]==guess[0]
+                            sameLast = word[-1]==guess[-1]
+                            if nSyl==countSyllables(guess) and (sameFirst or sameLast):
                                 rat = s.ratio()
                             else:
                                 rat = 0
                             ratVec.append(rat)
-                        if nSyl>1 and max(ratVec)>0.5: # try threshold
+                        ratMat.append(ratVec)
+                    ratMat = np.array(ratMat).T # flip on its side
+        
+                    mxVec = list(map(lambda k: np.argmax(k) if max(k)>0.5 else np.nan, ratMat))
+                    for i_arg in mxVec:
+                        if not np.isnan(i_arg):
+                            word = filtWordList[i_arg]
                             idx = list(filter(lambda k: wordList[k]==word, range(nWords)))[0]
                             itemList[idx]=1
                         

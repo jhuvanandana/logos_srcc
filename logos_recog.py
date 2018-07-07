@@ -7,6 +7,8 @@
 #       + the vector must be preceded by a 'case' ID, which is the ID number of the recording/target list as labelled by their respective files
 #       + the order of indicator variables (1s and 0s) must match the word order of the target list
 #       + the file must have column headers as follows: "Id, R1, R2, ..., R15"
+
+import numpy as np
 import os
 import re
 import sys
@@ -84,9 +86,8 @@ def main(dataDir='../input', submissionFile='submission.csv'):
         caseID = re.match(r'[rt]ID-(\d+)',fname).group(1)
 
         wordList = list(filter(lambda k: len(k), wordList.split(' ')))
-
         speechFile = sr.AudioFile(fullFname)
-            
+
         with speechFile as source:
             audio = r.record(source)
 
@@ -110,17 +111,26 @@ def main(dataDir='../input', submissionFile='submission.csv'):
         filtWordList = list(map(lambda k: wordList[k], filtIdx))
                 
         if len(exclList):
+            ratMat = []
             for word in filtWordList:
                 nSyl = countSyllables(word)
                 ratVec = []
                 for guess in exclList:
                     s = SequenceMatcher(lambda x: x == ' ',word,guess)
-                    if nSyl==countSyllables(guess):
+                    sameFirst = word[0]==guess[0]
+                    sameLast = word[-1]==guess[-1]
+                    if nSyl==countSyllables(guess) and (sameFirst or sameLast):
                         rat = s.ratio()
                     else:
                         rat = 0
                     ratVec.append(rat)
-                if nSyl>1 and max(ratVec)>0.5: # try threshold
+                ratMat.append(ratVec)
+            ratMat = np.array(ratMat).T # flip on its side
+
+            mxVec = list(map(lambda k: np.argmax(k) if max(k)>0.5 else np.nan, ratMat))
+            for i_arg in mxVec:
+                if not np.isnan(i_arg):
+                    word = filtWordList[i_arg]
                     idx = list(filter(lambda k: wordList[k]==word, range(nWords)))[0]
                     itemList[idx]=1
 
@@ -129,7 +139,7 @@ def main(dataDir='../input', submissionFile='submission.csv'):
     df = pd.DataFrame(outVec,columns=colNames)
     df.Id = df.Id.astype(int)
     df.sort_values('Id', inplace=True)
-    
+
     print()
     print('Solution table:')
     print(df)
@@ -142,7 +152,7 @@ def main(dataDir='../input', submissionFile='submission.csv'):
     print(os.listdir('./'))
 
 if __name__ == '__main__':
-    
+
     argList = list(sys.argv)
     if len(argList)==3:
         pythonScript, dataDir, submissionFile = argList
