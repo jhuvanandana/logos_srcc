@@ -120,30 +120,28 @@ def main(dataDir='../input', submissionFile='submission.csv'):
 
         filtIdx = list(filter(lambda k: not itemList[k], range(nWords)))
         filtWordList = list(map(lambda k: wordList[k], filtIdx))
-                
-        if len(exclList):
-            ratMat = []
-            for guess in exclList:
-                ratVec = []
-                for word in filtWordList:
-                    s = SequenceMatcher(lambda x: x == ' ',word,guess)
-                    ratVec.append(s.ratio())
-                i_mx = np.argmax(ratVec)
-                mx_ratio = ratVec[i_mx]
-                mx_word  = filtWordList[i_mx]
-                same_syl = countSyllables(mx_word)==countSyllables(guess)
-                same_first = mx_word[0]==guess[0]
-                same_last = mx_word[-1]==guess[-1]
-                iFound = False
-                if mx_ratio>0.85:
-                    iFound = True
-                elif mx_ratio>0.8:
-                    iFound = same_syl
-                elif mx_ratio>0.6:
-                    iFound = same_first or same_last                    
-                if iFound:
-                    idx = list(filter(lambda k: wordList[k]==word, range(nWords)))[0]
-                    itemList[idx]=1
+
+        for guess in exclList:
+            ratVec = []
+            for word in filtWordList:
+                s = SequenceMatcher(lambda x: x == ' ',word,guess)
+                ratVec.append(s.ratio())
+            i_mx = np.argmax(ratVec)
+            mx_ratio = ratVec[i_mx]
+            mx_word  = filtWordList[i_mx]
+            same_syl = countSyllables(mx_word)==countSyllables(guess)
+            same_first = mx_word[0]==guess[0]
+            same_last = mx_word[-1]==guess[-1]
+            iFound = False
+            if mx_ratio>0.85:
+                iFound = True
+            elif mx_ratio>0.8:
+                iFound = same_syl
+            elif mx_ratio>0.6:
+                iFound = same_first or same_last                    
+            if iFound:
+                idx = list(filter(lambda k: wordList[k]==word, range(nWords)))[0]
+                itemList[idx]=1
 
         outVec.append([caseID]+itemList)
 
