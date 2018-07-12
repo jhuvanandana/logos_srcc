@@ -19,13 +19,24 @@ from pydub import AudioSegment
 from difflib import SequenceMatcher
 from datetime import datetime
 
-# https://www.howmanysyllables.com/howtocountsyllables
+def mapToCV(word):
+    vowelList = 'aeiouy'
+    return ''.join(list(map(lambda k: 'v' if k in vowelList else 'c', word)))
+    
+# modification of https://www.howmanysyllables.com/howtocountsyllables
 def countSyllables(word):
     nSyl = 0
     nLetters = len(word)
     vowelList = 'aeiouy'
     lastWasVowel = False
-
+    if nLetters>3 and word[-2:]=='ed':
+        cvMap = mapToCV(word)
+        if cvMap[-4:]=='vcvc':
+            ## redefine word
+            word = word[:-1]
+        elif cvMap[-4:]=='ccvc' and word[-4]==word[-3]:
+            word = word[:-2]
+    nLetters = len(word)
     for letter in word:
         foundVowel = False
         if letter in vowelList and not lastWasVowel:
@@ -112,25 +123,25 @@ def main(dataDir='../input', submissionFile='submission.csv'):
                 
         if len(exclList):
             ratMat = []
-            for word in filtWordList:
-                nSyl = countSyllables(word)
+            for guess in exclList:
                 ratVec = []
-                for guess in exclList:
+                for word in filtWordList:
                     s = SequenceMatcher(lambda x: x == ' ',word,guess)
-                    sameFirst = word[0]==guess[0]
-                    sameLast = word[-1]==guess[-1]
-                    if nSyl==countSyllables(guess) and (sameFirst or sameLast):
-                        rat = s.ratio()
-                    else:
-                        rat = 0
-                    ratVec.append(rat)
-                ratMat.append(ratVec)
-            ratMat = np.array(ratMat).T # flip on its side
-
-            mxVec = list(map(lambda k: np.argmax(k) if max(k)>0.5 else np.nan, ratMat))
-            for i_arg in mxVec:
-                if not np.isnan(i_arg):
-                    word = filtWordList[i_arg]
+                    ratVec.append(s.ratio())
+                i_mx = np.argmax(ratVec)
+                mx_ratio = ratVec[i_mx]
+                mx_word  = filtWordList[i_mx]
+                same_syl = countSyllables(mx_word)==countSyllables(guess)
+                same_first = mx_word[0]==guess[0]
+                same_last = mx_word[-1]==guess[-1]
+                iFound = False
+                if mx_ratio>0.85:
+                    iFound = True
+                elif mx_ratio>0.8:
+                    iFound = same_syl
+                elif mx_ratio>0.6:
+                    iFound = same_first or same_last                    
+                if iFound:
                     idx = list(filter(lambda k: wordList[k]==word, range(nWords)))[0]
                     itemList[idx]=1
 
